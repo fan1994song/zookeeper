@@ -60,6 +60,10 @@ import org.slf4j.LoggerFactory;
  *
  * Typical (default) thread counts are: on a 32 core machine, 1 accept thread,
  * 1 connection expiration thread, 4 selector threads, and 64 worker threads.
+ *
+ * AcceptThread：用于接收 client 的连接请求，建立连接后交给 SelectorThread 线程处理
+ * SelectorThread：用于处理读写请求
+ * ConnectionExpirerThread：检查 session 连接是否过期
  */
 public class NIOServerCnxnFactory extends ServerCnxnFactory {
 
@@ -314,6 +318,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
      *
      * If there is no worker thread pool, the SelectorThread performs the I/O
      * directly.
+     * 用于处理读写请求
      */
     public class SelectorThread extends AbstractSelectThread {
 
@@ -360,12 +365,14 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
          * dispatches ready I/O work requests, then registers all pending
          * newly accepted connections and updates any interest ops on the
          * queue.
+         * 每次循环都会处理刚刚建立的 socket 连接
          */
         public void run() {
             try {
                 while (!stopped) {
                     try {
                         select();
+                        // 处理已建立的连接
                         processAcceptedConnections();
                         processInterestOpsUpdateRequests();
                     } catch (RuntimeException e) {
@@ -539,6 +546,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
     /**
      * This thread is responsible for closing stale connections so that
      * connections on which no session is established are properly expired.
+     * 检查 session 连接是否过期
      */
     private class ConnectionExpirerThread extends ZooKeeperThread {
 
@@ -548,6 +556,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
 
         public void run() {
             try {
+                // zk是session过期桶的策略去做的，原理还是和心跳机制一样，将需要过期的桶的数据全部移除
                 while (!stopped) {
                     long waitTime = cnxnExpiryQueue.getWaitTime();
                     if (waitTime > 0) {

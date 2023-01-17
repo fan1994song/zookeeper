@@ -121,6 +121,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
     /** If both flushDelay and maxMaxBatchSize are set (bigger than 0), flush
      * whenever either condition is hit. If only one or the other is
      * set, flush only when the relevant condition is hit.
+     * 如果同时设置了flushDelay和maxMaxBatchSize(大于0)，则在遇到任何一个条件时都刷新*。如果只设置了一个或另一个，则仅在满足相关条件时刷新
      */
     private boolean shouldFlush() {
         long flushDelay = zks.getFlushDelay();
@@ -140,6 +141,10 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
         snapSizeInBytes = size;
     }
 
+    /**
+     * 是否需要进行快照文件的生成
+     * @return
+     */
     private boolean shouldSnapshot() {
         int logCount = zks.getZKDatabase().getTxnCount();
         long logSize = zks.getZKDatabase().getTxnSize();
@@ -157,6 +162,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
         try {
             // we do this in an attempt to ensure that not all of the servers
             // in the ensemble take a snapshot at the same time
+            // 我们这样做是为了确保不是集成中的所有服务器都在同一时间进行快照(设置1000，则在500～1000随机生成快照，避免所有服务器同时生成快照,进而影响效率)
             resetSnapshotStats();
             lastFlushTime = Time.currentElapsedTime();
             while (true) {
@@ -178,7 +184,9 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
                 ServerMetrics.getMetrics().SYNC_PROCESSOR_QUEUE_TIME.add(startProcessTime - si.syncQueueStartTime);
 
                 // track the number of records written to the log
+                // 记录事物日志中
                 if (!si.isThrottled() && zks.getZKDatabase().append(si)) {
+                    // 触发快照的生成
                     if (shouldSnapshot()) {
                         resetSnapshotStats();
                         // roll the log
@@ -201,6 +209,9 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
                         }
                     }
                 } else if (toFlush.isEmpty()) {
+                    /**
+                     * 如果这是一个读或节流请求(不需要写入磁盘)，没有挂起的刷新(写入)，那么只需将其传递给下一个处理器
+                     */
                     // optimization for read heavy workloads
                     // iff this is a read or a throttled request(which doesn't need to be written to the disk),
                     // and there are no pending flushes (writes), then just pass this to the next processor
@@ -273,6 +284,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
     public void processRequest(final Request request) {
         Objects.requireNonNull(request, "Request cannot be null");
 
+        // 再加入到同步request的处理器中
         request.syncQueueStartTime = Time.currentElapsedTime();
         queuedRequests.add(request);
         ServerMetrics.getMetrics().SYNC_PROCESSOR_QUEUED.add(1);

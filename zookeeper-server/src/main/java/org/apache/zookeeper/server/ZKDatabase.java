@@ -104,9 +104,11 @@ public class ZKDatabase {
      * maps to. There is a one to one relationship
      * between a filetxnsnaplog and zkdatabase.
      * @param snapLog the FileTxnSnapLog mapping this zkdatabase
+     * 此 zk 数据库映射到的 filetxnsnaplog, filetxnsnaplog 和 zkdatabase 之间存在一对一的关系
      */
     public ZKDatabase(FileTxnSnapLog snapLog) {
         dataTree = createDataTree();
+        // session超时信息的数据维护
         sessionsWithTimeouts = new ConcurrentHashMap<Long, Integer>();
         this.snapLog = snapLog;
 
@@ -238,6 +240,7 @@ public class ZKDatabase {
     }
 
     /**
+     * 最后处理的数据树的zxid
      * get the last processed zxid from a datatree
      * @return the last processed zxid of a datatree
      */
@@ -463,6 +466,7 @@ public class ZKDatabase {
     }
 
     /**
+     * 数据树中最后处理的zxid
      * the last processed zxid in the datatree
      * @param zxid the last processed zxid in the datatree
      */

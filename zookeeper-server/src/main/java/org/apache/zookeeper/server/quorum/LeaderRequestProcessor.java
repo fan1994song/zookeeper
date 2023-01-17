@@ -46,11 +46,13 @@ public class LeaderRequestProcessor implements RequestProcessor {
 
     @Override
     public void processRequest(Request request) throws RequestProcessorException {
+        // 首先筛选针对acl的仲裁请求
         // Screen quorum requests against ACLs first
         if (!lzks.authWriteRequest(request)) {
             return;
         }
 
+        // 检查这是否是一个本地会话，并且我们试图创建一个临时节点，在这种情况下我们升级会话
         // Check if this is a local session and we are trying to create
         // an ephemeral node, in which case we upgrade the session
         Request upgradeRequest = null;

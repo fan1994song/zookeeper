@@ -202,6 +202,9 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements RequestP
              * the number of request we poll from queuedRequests, since it is
              * possible to endlessly poll read requests from queuedRequests, and
              * that will lead to a starvation of non-local committed requests.
+             *
+             * 在以下循环的每次迭代中，我们最多处理 queuedRequests 的 requestsToProcess 请求。我们必须限制从
+             * queuedRequests 轮询的请求数量，因为有可能从 queuedRequests 无休止地轮询读取请求，这将导致非本地提交请求的匮乏。
              */
             int requestsToProcess = 0;
             boolean commitIsWaiting = false;
@@ -212,6 +215,9 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements RequestP
                  * the first update operation in the queuedRequests or to a
                  * request from a client on another server (i.e., the order of
                  * the following two lines is important!).
+                 *
+                 * 由于请求在被发送到 leader之前被放入队列中，如果commitIsWaiting = true，则提交
+                 * 属于 queuedRequests中的第一个更新操作，或者来自另一个服务器上的客户端请求(即，下面两行的顺序很重要!)
                  */
                 commitIsWaiting = !committedRequests.isEmpty();
                 requestsToProcess = queuedRequests.size();
@@ -241,6 +247,10 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements RequestP
                  * After the loop a single committed request is processed if
                  * one is waiting (or a batch of commits if maxCommitBatchSize
                  * is set).
+                 *
+                 * 处理来自传入队列 (queuedRequests) 的 requestsToProcess 请求。如果设置了 maxReadBatchSize，则在处理
+                 * maxReadBatchSize 个读取（或队列中不再有读取）之前不会处理任何提交。在循环之后，如果一个正在等待，则处理单个
+                 * 提交的请求（或者如果设置了 maxCommitBatchSize，则处理一批提交）
                  */
                 Request request;
                 int readsProcessed = 0;

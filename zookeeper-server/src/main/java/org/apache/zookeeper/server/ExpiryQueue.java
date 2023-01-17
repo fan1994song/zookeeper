@@ -133,6 +133,7 @@ public class ExpiryQueue<E> {
      *
      * @return next set of expired elements, or an empty set if none are
      *         ready
+     * 从expireMap中删除下一个过期的元素集。该方法需要通过检查getwittime()足够频繁地调用*，否则将在expiryMap中排队，形成空集的积压
      */
     public Set<E> poll() {
         long now = Time.currentElapsedTime();

@@ -664,6 +664,7 @@ public class FinalRequestProcessor implements RequestProcessor {
         }
         zks.checkACL(cnxn, zks.getZKDatabase().aclForNode(n), ZooDefs.Perms.READ, authInfo, path, null);
         Stat stat = new Stat();
+        // 存在watch的操作，就进行添加
         byte[] b = zks.getZKDatabase().getData(path, stat, getDataRequest.getWatch() ? cnxn : null);
         return new GetDataResponse(b, stat);
     }

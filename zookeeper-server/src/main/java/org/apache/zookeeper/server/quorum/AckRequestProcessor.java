@@ -39,6 +39,7 @@ class AckRequestProcessor implements RequestProcessor {
 
     /**
      * Forward the request as an ACK to the leader
+     * 将请求作为ACK转发给leader，这个应该是ack确认收集投票的leader的controller
      */
     public void processRequest(Request request) {
         QuorumPeer self = leader.self;

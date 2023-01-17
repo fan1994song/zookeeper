@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
  * interval. It always rounds up the tick interval to provide a sort of grace
  * period. Sessions are thus expired in batches made up of sessions that expire
  * in a given interval.
+ * 这是一个功能齐全的SessionTracker。它按tick *间隔分组跟踪会话。它总是将刻度间隔取整以提供一种宽限期。因此，会话是由在给定间隔内过期*的会话组成的批量过期的。
  */
 public class SessionTrackerImpl extends ZooKeeperCriticalThread implements SessionTracker {
 
@@ -84,6 +85,7 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
     }
 
     /**
+     * 生成sessionId的算法
      * Generates an initial sessionId.
      *
      * <p>High order 1 byte is serverId, next 5 bytes are from timestamp, and low order 2 bytes are 0s.

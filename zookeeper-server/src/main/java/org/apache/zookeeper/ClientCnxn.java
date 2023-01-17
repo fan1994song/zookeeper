@@ -149,6 +149,7 @@ public class ClientCnxn {
 
     /**
      * These are the packets that need to be sent.
+     * 需要被发送的数据包
      */
     private final LinkedBlockingDeque<Packet> outgoingQueue = new LinkedBlockingDeque<Packet>();
 
@@ -540,6 +541,9 @@ public class ClientCnxn {
             waitingEvents.add(eventOfDeath);
         }
 
+        /**
+         * eventThread线程：负责队列事件和处理 watch
+         */
         @Override
         @SuppressFBWarnings("JLM_JSR166_UTILCONCURRENT_MONITORENTER")
         public void run() {
@@ -763,6 +767,7 @@ public class ClientCnxn {
 
         if (p.cb == null) {
             synchronized (p) {
+                // 还是通过wait、notify机制来解除阻塞
                 p.finished = true;
                 p.notifyAll();
             }
@@ -937,6 +942,7 @@ public class ClientCnxn {
                 packet = pendingQueue.remove();
             }
             /*
+             * 因为请求是按顺序处理的，所以我们最好得到第一个请求的响应
              * Since requests are processed in order, we better get a response
              * to the first request!
              */
@@ -961,6 +967,7 @@ public class ClientCnxn {
 
                 LOG.debug("Reading reply session id: 0x{}, packet:: {}", Long.toHexString(sessionId), packet);
             } finally {
+                // 响应设置为true
                 finishPacket(packet);
             }
         }
@@ -1174,6 +1181,9 @@ public class ClientCnxn {
             }
         }
 
+        /**
+         * sendThread主要是：向服务端发送心跳,或者向服务端发送我们在控制台输入的数据以及接受服务端发送过来的响应
+         */
         @Override
         public void run() {
             clientCnxnSocket.introduce(this, sessionId, outgoingQueue);
@@ -1252,6 +1262,7 @@ public class ClientCnxn {
                     if (state.isConnected()) {
                         //1000(1 second) is to prevent race condition missing to send the second ping
                         //also make sure not to send too many pings when readTimeout is small
+                        // (1秒)是为了防止竞态条件缺失而发送第二个ping 也要确保在readTimeout较小时不发送太多ping
                         int timeToNextPing = readTimeout / 2
                                              - clientCnxnSocket.getIdleSend()
                                              - ((clientCnxnSocket.getIdleSend() > 1000) ? 1000 : 0);
@@ -1569,6 +1580,7 @@ public class ClientCnxn {
         WatchRegistration watchRegistration,
         WatchDeregistration watchDeregistration) throws InterruptedException {
         ReplyHeader r = new ReplyHeader();
+        // 将请求组装发送到outgoingQueue队列中（事物请求）
         Packet packet = queuePacket(
             h,
             r,
@@ -1580,6 +1592,7 @@ public class ClientCnxn {
             null,
             watchRegistration,
             watchDeregistration);
+        // 阻塞等待完成,ClientCnxnSocketNIO里解除
         synchronized (packet) {
             if (requestTimeout > 0) {
                 // Wait for request completion with timeout

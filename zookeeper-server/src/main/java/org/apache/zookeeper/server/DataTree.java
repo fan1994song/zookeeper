@@ -92,6 +92,8 @@ import org.slf4j.LoggerFactory;
  * The tree maintains two parallel data structures: a hashtable that maps from
  * full paths to DataNodes and a tree of DataNodes. All accesses to a path is
  * through the hashtable. The tree is traversed only when serializing to disk.
+ *
+ * concurrentHashMap 键值对
  */
 public class DataTree {
 
@@ -102,6 +104,7 @@ public class DataTree {
     /**
      * This map provides a fast lookup to the datanodes. The tree is the
      * source of truth and is where all the locking occurs
+     * 此映射提供对数据节点的快速查找。树是事实的来源，是所有锁定发生的地方
      */
     private final NodeHashMap nodes;
 
@@ -109,30 +112,43 @@ public class DataTree {
 
     private IWatchManager childWatches;
 
-    /** cached total size of paths and data for all DataNodes */
+    /** cached total size of paths and data for all DataNodes
+     * 缓存所有 DataNode 的路径和数据的总大小
+     * */
     private final AtomicLong nodeDataSize = new AtomicLong(0);
 
-    /** the root of zookeeper tree */
+    /** the root of zookeeper tree
+     * 根节点
+     * */
     private static final String rootZookeeper = "/";
 
-    /** the zookeeper nodes that acts as the management and status node **/
+    /** the zookeeper nodes that acts as the management and status node
+     * 充当管理和状态节点的 zookeeper 节点
+     * **/
     private static final String procZookeeper = Quotas.procZookeeper;
 
-    /** this will be the string thats stored as a child of root */
+    /** this will be the string thats stored as a child of root
+     * 这将是作为 root 的子项存储的字符串
+     * */
     private static final String procChildZookeeper = procZookeeper.substring(1);
 
     /**
      * the zookeeper quota node that acts as the quota management node for
      * zookeeper
+     * zookeeper 配额节点，作为 zookeeper 的配额管理节点
      */
     private static final String quotaZookeeper = Quotas.quotaZookeeper;
 
-    /** this will be the string thats stored as a child of /zookeeper */
+    /** this will be the string thats stored as a child of /zookeeper
+     * 这将是作为 zookeeper 的子项存储的字符串
+     * */
     private static final String quotaChildZookeeper = quotaZookeeper.substring(procZookeeper.length() + 1);
 
     /**
      * the zookeeper config node that acts as the config management node for
      * zookeeper
+     *
+     * Zookeeper 配置节点，充当 Zookeeper 的配置管理节点
      */
     private static final String configZookeeper = ZooDefs.CONFIG_NODE;
 
@@ -141,6 +157,7 @@ public class DataTree {
 
     /**
      * the path trie that keeps track of the quota nodes in this datatree
+     * 跟踪此数据树中配额节点的路径树
      */
     private final PathTrie pTrie = new PathTrie();
 
@@ -151,16 +168,19 @@ public class DataTree {
 
     /**
      * This hashtable lists the paths of the ephemeral nodes of a session.
+     * 此哈希表列出了会话的临时节点的路径。
      */
     private final Map<Long, HashSet<String>> ephemerals = new ConcurrentHashMap<Long, HashSet<String>>();
 
     /**
      * This set contains the paths of all container nodes
+     * 该集合包含所有容器节点的路径
      */
     private final Set<String> containers = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 
     /**
      * This set contains the paths of all ttl nodes
+     * 此集合包含所有 ttl 节点的路径
      */
     private final Set<String> ttls = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 
@@ -423,6 +443,7 @@ public class DataTree {
     }
 
     /**
+     * 添加节点，维护map，根据/解析找出其父节点，构建维护父节点的children数据
      * Add a new node to the DataTree.
      * @param path
      *            Path for the new node.
@@ -629,6 +650,16 @@ public class DataTree {
         childWatches.triggerWatch("".equals(parentName) ? "/" : parentName, EventType.NodeChildrenChanged);
     }
 
+    /**
+     * 设置数据时，触发watch
+     * @param path
+     * @param data
+     * @param version
+     * @param zxid
+     * @param time
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
     public Stat setData(String path, byte[] data, int version, long zxid, long time) throws KeeperException.NoNodeException {
         Stat s = new Stat();
         DataNode n = nodes.get(path);
@@ -658,6 +689,7 @@ public class DataTree {
         nodeDataSize.addAndGet(getNodeSize(path, data) - getNodeSize(path, lastdata));
 
         updateWriteStat(path, dataBytes);
+        // 触发watch机制
         dataWatches.triggerWatch(path, EventType.NodeDataChanged);
         return s;
     }
@@ -696,6 +728,7 @@ public class DataTree {
         synchronized (n) {
             n.copyStat(stat);
             if (watcher != null) {
+                // 添加到path对应的watcher中
                 dataWatches.addWatch(path, watcher);
             }
             data = n.data;

@@ -433,6 +433,8 @@ public class NettyServerCnxn extends ServerCnxn {
     }
 
     /**
+     * 接收一条消息，该消息可以来自队列缓冲区，也可以来自通过通道进入的新缓冲区。这只能从事件循环线程调用
+     *
      * Receive a message, which can come from the queued buffer or from a new
      * buffer coming in over the channel. This should only be called from the
      * event loop thread.

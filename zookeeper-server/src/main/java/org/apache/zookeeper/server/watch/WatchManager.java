@@ -123,9 +123,11 @@ public class WatchManager implements IWatchManager {
     public WatcherOrBitSet triggerWatch(String path, EventType type, WatcherOrBitSet supress) {
         WatchedEvent e = new WatchedEvent(type, KeeperState.SyncConnected, path);
         Set<Watcher> watchers = new HashSet<>();
+        // 获取path的迭代器，应该是查找所有相关父节点的作用，通知所有watch相关节点的客户端
         PathParentIterator pathParentIterator = getPathParentIterator(path);
         synchronized (this) {
             for (String localPath : pathParentIterator.asIterable()) {
+                // 获取path下watch集合
                 Set<Watcher> thisWatchers = watchTable.get(localPath);
                 if (thisWatchers == null || thisWatchers.isEmpty()) {
                     continue;
@@ -149,6 +151,7 @@ public class WatchManager implements IWatchManager {
                         }
                     }
                 }
+                // 移除watcher数据
                 if (thisWatchers.isEmpty()) {
                     watchTable.remove(localPath);
                 }
@@ -161,6 +164,9 @@ public class WatchManager implements IWatchManager {
             return null;
         }
 
+        /**
+         * 遍历执行watch
+         */
         for (Watcher w : watchers) {
             if (supress != null && supress.contains(w)) {
                 continue;

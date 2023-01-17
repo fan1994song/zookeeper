@@ -462,6 +462,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * This constructor is for backward compatibility with the existing unit
      * test code.
      * It defaults to FileLogProvider persistence provider.
+     * 根据快照文件、事物日志文件生成FileTxnSnapLog
      */
     public ZooKeeperServer(File snapDir, File logDir, int tickTime) throws IOException {
         this(new FileTxnSnapLog(snapDir, logDir), tickTime, "");
@@ -708,9 +709,11 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     }
 
     private void startupWithServerState(State state) {
+        // 创建session超时检测器
         if (sessionTracker == null) {
             createSessionTracker();
         }
+        // 启动检测线程
         startSessionTracker();
         setupRequestProcessors();
 

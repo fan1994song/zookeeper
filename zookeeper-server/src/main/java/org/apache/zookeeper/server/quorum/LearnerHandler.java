@@ -322,6 +322,7 @@ public class LearnerHandler extends ZooKeeperThread {
     /**
      * This method will use the thread to send packets added to the
      * queuedPackets list
+     * 该方法将使用线程发送添加到queuedPackets列表中的包
      *
      * @throws InterruptedException
      */
@@ -367,6 +368,7 @@ public class LearnerHandler extends ZooKeeperThread {
                 }
                 oa.writeRecord(p, "packet");
                 packetsSent.incrementAndGet();
+                // 跟踪发送
                 messageTracker.trackSent(p.getType());
             } catch (IOException e) {
                 LOG.error("Exception while sending packets in LearnerHandler", e);

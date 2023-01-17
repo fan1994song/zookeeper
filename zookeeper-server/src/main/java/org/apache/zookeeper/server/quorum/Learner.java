@@ -239,6 +239,7 @@ public class Learner {
 
     /**
      * send a request packet to the leader
+     * 发送请求包到leader服务器
      *
      * @param request
      *                the request from the client
@@ -540,6 +541,7 @@ public class Learner {
     }
 
     /**
+     * 最后，将我们的历史记录与 Leader（如果是 Follower）或 LearnerMaster（如果是 Observer）同步
      * Finally, synchronize our history with the Leader (if Follower)
      * or the LearnerMaster (if Observer).
      * @param newLeaderZxid
@@ -594,6 +596,7 @@ public class Learner {
                 // immediately persist the latest snapshot when there is txn log gap
                 syncSnapshot = true;
             } else if (qp.getType() == Leader.TRUNC) {
+                // 我们需要将日志截断到领导者的 lastzxid
                 //we need to truncate the log to the lastzxid of the leader
                 self.setSyncMode(QuorumPeer.SyncMode.TRUNC);
                 LOG.warn("Truncating log to get in sync with the leader 0x{}", Long.toHexString(qp.getZxid()));

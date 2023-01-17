@@ -463,6 +463,7 @@ public class FileTxnSnapLog {
     }
 
     /**
+     * 将数据树和会话保存到快照中
      * save the datatree and the sessions into a snapshot
      * @param dataTree the datatree to be serialized onto disk
      * @param sessionsWithTimeouts the session timeouts to be

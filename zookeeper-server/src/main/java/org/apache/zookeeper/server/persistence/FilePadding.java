@@ -68,11 +68,12 @@ public class FilePadding {
 
     /**
      * pad the current file to increase its size to the next multiple of preAllocSize greater than the current size and position
-     *
+     * 填充当前文件以将其大小增加到大于当前大小和位置的 preAllocSize 的下一个倍数
      * @param fileChannel the fileChannel of the file to be padded
      * @throws IOException
      */
     long padFile(FileChannel fileChannel) throws IOException {
+        // preAllocSize 预分配64MB，若小于4kb
         long newFileSize = calculateFileSizeWithPadding(fileChannel.position(), currentSize, preAllocSize);
         if (currentSize != newFileSize) {
             fileChannel.write((ByteBuffer) fill.position(0), newFileSize - fill.remaining());
@@ -85,6 +86,8 @@ public class FilePadding {
      * Calculates a new file size with padding. We only return a new size if
      * the current file position is sufficiently close (less than 4K) to end of
      * file and preAllocSize is &gt; 0.
+     *
+     * 计算带有填充的新文件大小。如果当前文件位置足够接近（小于 4K）到文件末尾并且 preAllocSize > 0，我们只会返回一个新大小。
      *
      * @param position     the point in the file we have written to
      * @param fileSize     application keeps track of the current file size

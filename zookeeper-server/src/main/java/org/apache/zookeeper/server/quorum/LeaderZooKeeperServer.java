@@ -38,6 +38,8 @@ import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 
 /**
  *
+ * 就像标准的ZooKeeperServer一样。我们只是替换了request 处理链路器
+ *
  * Just like the standard ZooKeeperServer. We just replace the request
  * processors: PrepRequestProcessor -&gt; ProposalRequestProcessor -&gt;
  * CommitProcessor -&gt; Leader.ToBeAppliedRequestProcessor -&gt;
@@ -62,16 +64,25 @@ public class LeaderZooKeeperServer extends QuorumZooKeeperServer {
         return self.leader;
     }
 
+    /**
+     * 组成负责链路处理器
+     */
     @Override
     protected void setupRequestProcessors() {
+        // 回复请求，并改变内存数据库的状态
         RequestProcessor finalProcessor = new FinalRequestProcessor(this);
+        // 存储已经被CommitProcessor处理过的可提交的Proposal——直到FinalRequestProcessor处理完后，才会将其移除
         RequestProcessor toBeAppliedProcessor = new Leader.ToBeAppliedRequestProcessor(finalProcessor, getLeader());
+        // 等待集群内Proposal投票直到可被提交
         commitProcessor = new CommitProcessor(toBeAppliedProcessor, Long.toString(getServerId()), false, getZooKeeperServerListener());
         commitProcessor.start();
+        // 发起proposal的请求
         ProposalRequestProcessor proposalProcessor = new ProposalRequestProcessor(this, commitProcessor);
         proposalProcessor.initialize();
+        // 参数校验和根据需求创建事务
         prepRequestProcessor = new PrepRequestProcessor(this, proposalProcessor);
         prepRequestProcessor.start();
+        // 检查会话是否失效
         firstProcessor = new LeaderRequestProcessor(this, prepRequestProcessor);
 
         setupContainerManager();

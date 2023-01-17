@@ -54,6 +54,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * 此类实现 TxnLog 接口。它提供 api 来访问 txnlogs 并向其中添加条目
  * This class implements the TxnLog interface. It provides api's
  * to access the txnlogs and add entries to it.
  * <p>
@@ -267,11 +268,21 @@ public class FileTxnLog implements TxnLog, Closeable {
               return append(hdr, txn, null);
     }
 
+    /**
+     * 事物日志追加数据
+     * @param hdr the transaction header
+     * @param txn
+     * @param digest transaction digest
+     * returns true iff something appended, otw false
+     * @return
+     * @throws IOException
+     */
     @Override
     public synchronized boolean append(TxnHeader hdr, Record txn, TxnDigest digest) throws IOException {
         if (hdr == null) {
             return false;
         }
+        // 事物数据的zxid小于等于当前zxid,异常数据告警日志
         if (hdr.getZxid() <= lastZxidSeen) {
             LOG.warn(
                 "Current zxid {} is <= {} for {}",
@@ -281,6 +292,7 @@ public class FileTxnLog implements TxnLog, Closeable {
         } else {
             lastZxidSeen = hdr.getZxid();
         }
+        // 若事物日志流为空，根据zxid生成文件后缀，创建新的事物日志文件，便于事物操作的记录写入
         if (logStream == null) {
             LOG.info("Creating new log file: {}", Util.makeLogName(hdr.getZxid()));
 
@@ -296,12 +308,15 @@ public class FileTxnLog implements TxnLog, Closeable {
             streamsToFlush.add(fos);
         }
         filePadding.padFile(fos.getChannel());
+        // 序列化
         byte[] buf = Util.marshallTxnEntry(hdr, txn, digest);
         if (buf == null || buf.length == 0) {
             throw new IOException("Faulty serialization for header " + "and txn");
         }
+        // 创建要使用的校验和算法
         Checksum crc = makeChecksumAlgorithm();
         crc.update(buf, 0, buf.length);
+        // 写入事物日志文件流
         oa.writeLong(crc.getValue(), "txnEntryCRC");
         Util.writeTxnBytes(oa, buf);
 
@@ -370,6 +385,7 @@ public class FileTxnLog implements TxnLog, Closeable {
     }
 
     /**
+     * 提交日志。确保一切都落入磁盘
      * commit the logs. make sure that everything hits the
      * disk
      */

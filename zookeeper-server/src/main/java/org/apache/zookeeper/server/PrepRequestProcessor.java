@@ -138,6 +138,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements Req
         LOG.info(String.format("PrepRequestProcessor (sid:%d) started, reconfigEnabled=%s", zks.getServerId(), zks.reconfigEnabled));
         try {
             while (true) {
+                // 从队列中得到待执行的请求进行处理
                 ServerMetrics.getMetrics().PREP_PROCESSOR_QUEUE_SIZE.add(submittedRequests.size());
                 Request request = submittedRequests.take();
                 ServerMetrics.getMetrics().PREP_PROCESSOR_QUEUE_TIME
@@ -153,6 +154,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements Req
                     break;
                 }
 
+                // prrp开始处理的事件
                 request.prepStartTime = Time.currentElapsedTime();
                 pRequest(request);
             }
@@ -736,6 +738,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements Req
         nodeRecord.precalculatedDigest = precalculateDigest(
                 DigestOpCode.ADD, path, nodeRecord.data, s);
         setTxnDigest(request, nodeRecord.precalculatedDigest);
+        // 请求组装添加到outstandingChanges队列中
         addChangeRecord(nodeRecord);
     }
 
@@ -775,14 +778,18 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements Req
         request.setHdr(null);
         request.setTxn(null);
 
+        // 事物请求进行处理
         if (!request.isThrottled()) {
           pRequestHelper(request);
         }
 
         request.zxid = zks.getZxid();
         long timeFinishedPrepare = Time.currentElapsedTime();
+        // 统计 PREP_PROCESS 耗时
         ServerMetrics.getMetrics().PREP_PROCESS_TIME.add(timeFinishedPrepare - request.prepStartTime);
+        // 发送到下个处理器进行处理
         nextProcessor.processRequest(request);
+        // 统计 事物处理耗时
         ServerMetrics.getMetrics().PROPOSAL_PROCESS_TIME.add(Time.currentElapsedTime() - timeFinishedPrepare);
     }
 
@@ -798,6 +805,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements Req
             case OpCode.create:
             case OpCode.create2:
                 CreateRequest create2Request = new CreateRequest();
+                // zxid 自增，认为是事物请求
                 pRequest2Txn(request.type, zks.getNextZxid(), request, create2Request, true);
                 break;
             case OpCode.createTTL:
@@ -908,6 +916,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements Req
                 }
                 break;
 
+             // 其余的不需要创建Txn，非事物型操作，只需要验证会话
             //All the rest don't need to create a Txn - just verify session
             case OpCode.sync:
             case OpCode.exists:
@@ -1062,6 +1071,10 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements Req
         return rv;
     }
 
+    /**
+     * 放入阻塞队列中，解耦处理
+     * @param request
+     */
     public void processRequest(Request request) {
         request.prepQueueStartTime = Time.currentElapsedTime();
         submittedRequests.add(request);

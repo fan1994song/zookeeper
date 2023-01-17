@@ -66,6 +66,7 @@ public class FollowerRequestProcessor extends ZooKeeperCriticalThread implements
             while (!finished) {
                 ServerMetrics.getMetrics().LEARNER_REQUEST_PROCESSOR_QUEUE_SIZE.add(queuedRequests.size());
 
+                // 从待发送的队列中获取请求，执行事物请求的转发操作
                 Request request = queuedRequests.take();
                 if (LOG.isTraceEnabled()) {
                     ZooTrace.logRequest(LOG, ZooTrace.CLIENT_REQUEST_TRACE_MASK, 'F', request, "");
@@ -82,6 +83,7 @@ public class FollowerRequestProcessor extends ZooKeeperCriticalThread implements
                 // We want to queue the request to be processed before we submit
                 // the request to the leader so that we are ready to receive
                 // the response
+                // 我们希望在将请求提交给leader之前将请求排队以待处理，以便准备好接收响应
                 maybeSendRequestToNextProcessor(request);
 
                 if (request.isThrottled()) {
@@ -136,6 +138,7 @@ public class FollowerRequestProcessor extends ZooKeeperCriticalThread implements
         }
     }
 
+    // 事物请求转发的processor
     public void processRequest(Request request) {
         processRequest(request, true);
     }
@@ -146,6 +149,7 @@ public class FollowerRequestProcessor extends ZooKeeperCriticalThread implements
                 // Before sending the request, check if the request requires a
                 // global session and what we have is a local session. If so do
                 // an upgrade.
+                // 在发送请求之前，检查请求是否需要一个全局会话，而我们拥有的是一个本地会话。如果是，执行升级
                 Request upgradeRequest = null;
                 try {
                     upgradeRequest = zks.checkUpgradeSession(request);
@@ -159,6 +163,7 @@ public class FollowerRequestProcessor extends ZooKeeperCriticalThread implements
                 } catch (IOException ie) {
                     LOG.error("Unexpected error in upgrade", ie);
                 }
+                // 加入到转发的队列中等待转发处理
                 if (upgradeRequest != null) {
                     queuedRequests.add(upgradeRequest);
                 }

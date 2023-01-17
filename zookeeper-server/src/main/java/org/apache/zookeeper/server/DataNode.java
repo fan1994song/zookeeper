@@ -35,6 +35,7 @@ import org.apache.zookeeper.data.StatPersisted;
  * A data node contains a reference to its parent, a byte array as its data, an
  * array of ACLs, a stat object, and a set of its children's paths.
  *
+ * 树节点
  */
 @SuppressFBWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
 public class DataNode implements Record {
@@ -46,6 +47,9 @@ public class DataNode implements Record {
     // optimize the performance.
     volatile boolean digestCached;
 
+    /**
+     * znode节点存储的数据
+     */
     /** the data for this datanode */
     byte[] data;
 
@@ -56,6 +60,7 @@ public class DataNode implements Record {
 
     /**
      * the stat for this node that is persisted to disk.
+     * 节点状态
      */
     public StatPersisted stat;
 
@@ -63,6 +68,7 @@ public class DataNode implements Record {
      * the list of children for this node. note that the list of children string
      * does not contain the parent path -- just the last part of the path. This
      * should be synchronized on except deserializing (for speed up issues).
+     * 孩子节点
      */
     private Set<String> children = null;
 

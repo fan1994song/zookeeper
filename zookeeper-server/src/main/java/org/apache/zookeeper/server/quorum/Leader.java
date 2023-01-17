@@ -430,6 +430,7 @@ public class Leader extends LearnerMaster {
      */
     static final int INFORMANDACTIVATE = 19;
 
+    // zxid -> Proposal 维护的数据结构
     final ConcurrentMap<Long, Proposal> outstandingProposals = new ConcurrentHashMap<Long, Proposal>();
 
     private final ConcurrentLinkedQueue<Proposal> toBeApplied = new ConcurrentLinkedQueue<Proposal>();
@@ -919,17 +920,23 @@ public class Leader extends LearnerMaster {
         // pending all wait for a quorum of old and new config, so it's not possible to get enough acks
         // for an operation without getting enough acks for preceding ops. But in the future if multiple
         // concurrent reconfigs are allowed, this can happen.
+        /**
+         * 确保操作是按顺序提交的。通过重新配置，现在可以让不同的操作等待不同的ack集合，我们仍然希望强制
+         * 它们按顺序提交。目前我们只允许一个未完成的重新配置，这样重新配置和后续未完成的操作都需要等待新
+         * 配置和旧配置的法定人数，所以不可能为一个操作获得足够的ack，而没有为前面的操作获得足够的ack。但在未来如果多重
+         */
         if (outstandingProposals.containsKey(zxid - 1)) {
             return false;
         }
 
+        // 为了承诺，提案必须得到法定人数的接受，从所有必要的配置中获得法定人数
         // in order to be committed, a proposal must be accepted by a quorum.
-        //
         // getting a quorum from all necessary configurations.
         if (!p.hasAllQuorums()) {
             return false;
         }
 
+        // 不按照顺序,输出相关日志
         // commit proposals in order
         if (zxid != lastCommitted + 1) {
             LOG.warn(
@@ -988,7 +995,7 @@ public class Leader extends LearnerMaster {
 
     /**
      * Keep a count of acks that are received by the leader for a particular
-     * proposal
+     * proposal 对领导收到的某项建议的回复进行计数
      *
      * @param sid is the id of the server that sent the ack
      * @param zxid is the zxid of the proposal sent out
@@ -1040,6 +1047,7 @@ public class Leader extends LearnerMaster {
             p.request.logLatency(ServerMetrics.getMetrics().ACK_LATENCY, Long.toString(sid));
         }
 
+        // 若是可投票的服务器，收集票数
         p.addAck(sid);
 
         boolean hasCommitted = tryToCommit(p, zxid, followerAddr);
@@ -1052,7 +1060,12 @@ public class Leader extends LearnerMaster {
         // for an operation without getting enough acks for preceding ops. But in the future if multiple
         // concurrent reconfigs are allowed, this can happen and then we need to check whether some pending
         // ops may already have enough acks and can be committed, which is what this code does.
-
+        /**
+         * 如果p是一个重新配置，多个其他操作可能已经准备好提交，因为操作等待不同的ack集合。
+         * 目前我们一次只允许一个未完成的重新配置这样重新配置和后续未完成的操作都需要等待新配置和
+         * 旧配置的quorum，所以不可能为一个操作获得足够的ack而没有为前面的操作获得足够的ack。但在
+         * 未来，如果允许多个并发重新配置，这种情况可能会发生
+         */
         if (hasCommitted && p.request != null && p.request.getHdr().getType() == OpCode.reconfig) {
             long curZxid = zxid;
             while (allowedToCommit && hasCommitted && p != null) {
@@ -1132,6 +1145,7 @@ public class Leader extends LearnerMaster {
 
     /**
      * send a packet to all the followers ready to follow
+     * 数据发送到所有的follower服务器，加入到队列中进行解耦合
      *
      * @param qp
      *                the packet to be sent
@@ -1232,6 +1246,7 @@ public class Leader extends LearnerMaster {
 
     /**
      * create a proposal and send it out to all the members
+     * 创建事物，并发送到所有的follower服务器，原子广播一阶段
      *
      * @param request
      * @return the proposal that is queued to send to all the members
@@ -1242,6 +1257,7 @@ public class Leader extends LearnerMaster {
             ServiceUtils.requestSystemExit(ExitCode.UNEXPECTED_ERROR.getValue());
         }
         /**
+         * 解决滚动问题。所有低32位设置表示新领导人*选举。取而代之的是强行重新选举
          * Address the rollover issue. All lower 32bits set indicate a new leader
          * election. Force a re-election instead. See ZOOKEEPER-1277
          */
@@ -1272,8 +1288,15 @@ public class Leader extends LearnerMaster {
 
             LOG.debug("Proposing:: {}", request);
 
+            /**
+             * 放到outstandingProposals的Map里
+             * 组装成发送的Packet
+             * 将Proposal传递给下一个Processor
+             */
+            // 设置zxid参数发送到follower
             lastProposed = p.packet.getZxid();
             outstandingProposals.put(lastProposed, p);
+            // 数据发送到所有的follower服务器
             sendPacket(pp);
         }
         ServerMetrics.getMetrics().PROPOSAL_COUNT.add(1);

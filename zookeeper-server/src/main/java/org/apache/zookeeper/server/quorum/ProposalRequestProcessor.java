@@ -65,6 +65,11 @@ public class ProposalRequestProcessor implements RequestProcessor {
         syncProcessor.start();
     }
 
+    /**
+     * 对于事物请求会到这个节点进行处理，最终发送commit、sync处理器
+     * @param request
+     * @throws RequestProcessorException
+     */
     public void processRequest(Request request) throws RequestProcessorException {
         /* In the following IF-THEN-ELSE block, we process syncs on the leader.
          * If the sync is coming from a follower, then the follower
@@ -73,19 +78,23 @@ public class ProposalRequestProcessor implements RequestProcessor {
          * contain the handler. In this case, we add it to syncHandler, and
          * call processRequest on the next processor.
          */
+        // 同步请求，执行通过
         if (request instanceof LearnerSyncRequest) {
             zks.getLeader().processSync((LearnerSyncRequest) request);
         } else {
+            // 事物请求是否需要转发,若是leader直接处理、否则进行转发
             if (shouldForwardToNextProcessor(request)) {
                 nextProcessor.processRequest(request);
             }
             if (request.getHdr() != null) {
                 // We need to sync and get consensus on any transactions
+                // 我们需要同步并就任何事务达成共识
                 try {
                     zks.getLeader().propose(request);
                 } catch (XidRolloverException e) {
                     throw new RequestProcessorException(e.getMessage(), e);
                 }
+                // 同步处理器执行request的处理
                 syncProcessor.processRequest(request);
             }
         }
